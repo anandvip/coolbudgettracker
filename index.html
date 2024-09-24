@@ -15,7 +15,7 @@
             color: #333;
         }
         .container {
-            max-width: 1000px;
+            max-width: 1200px;
             margin: 2rem auto;
             padding: 2rem;
             background: white;
@@ -42,6 +42,14 @@
         }
         button:hover {
             background-color: #2980b9;
+        }
+        .delete-btn {
+            background-color: #e74c3c;
+            padding: 5px 10px;
+            font-size: 0.8rem;
+        }
+        .delete-btn:hover {
+            background-color: #c0392b;
         }
         input, select {
             margin: 10px 0;
@@ -72,7 +80,7 @@
         tr:hover {
             transform: translateY(-3px);
         }
-        #memberSection, #transactionSection, #summarySection {
+        #memberSection, #transactionSection, #summarySection, #reportSection {
             background-color: #fff;
             padding: 2rem;
             border-radius: 10px;
@@ -92,6 +100,13 @@
             font-weight: 600;
             color: #3498db;
         }
+        footer {
+            text-align: center;
+            padding: 20px;
+            background-color: #3498db;
+            color: white;
+            font-weight: bold;
+        }
         @keyframes fadeIn {
             from { opacity: 0; }
             to { opacity: 1; }
@@ -109,14 +124,14 @@
             <h2>Squad Members | 팀원</h2>
             <input type="text" id="newMemberInput" placeholder="Enter member name | 팀원 이름 입력">
             <button onclick="addMember()">Add to Squad | 팀에 추가</button>
-            <select id="memberSelect" onchange="selectMember()">
-                <option value="">Select a squad member | 팀원 선택</option>
-            </select>
             <div id="memberList"></div>
         </div>
 
         <div id="transactionSection" class="fade-in">
             <h2>Cash Flow | 현금 흐름</h2>
+            <select id="memberSelect">
+                <option value="">Select a squad member | 팀원 선택</option>
+            </select>
             <input type="date" id="transactionDate">
             <input type="text" id="transactionDescription" placeholder="What's it for? | 무엇을 위한 것인가요?">
             <input type="number" id="transactionAmount" placeholder="How much? | 얼마인가요?">
@@ -129,9 +144,11 @@
                 <thead>
                     <tr>
                         <th>When | 언제</th>
+                        <th>Who | 누구</th>
                         <th>What | 무엇</th>
                         <th>How Much | 얼마</th>
                         <th>Type | 유형</th>
+                        <th>Action | 동작</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -152,13 +169,48 @@
                 <p><span id="balance">₹0</span></p>
             </div>
         </div>
+
+        <div id="reportSection" class="fade-in">
+            <h2>Spending Report | 지출 보고서</h2>
+            <table id="reportTable">
+                <thead>
+                    <tr>
+                        <th>Member | 팀원</th>
+                        <th>Total Spending | 총 지출</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
     </div>
 
+    <footer>
+        With love from Papa ❤️ /Uncle
+    </footer>
+
     <script>
-        // The JavaScript remains the same as in the previous version
         let familyMembers = [];
         let transactions = [];
-        let selectedMember = null;
+
+        // Load data from localStorage
+        function loadData() {
+            const storedMembers = localStorage.getItem('familyMembers');
+            const storedTransactions = localStorage.getItem('transactions');
+
+            if (storedMembers) familyMembers = JSON.parse(storedMembers);
+            if (storedTransactions) transactions = JSON.parse(storedTransactions);
+
+            updateMemberList();
+            updateTransactionTable();
+            updateSummary();
+            updateReport();
+        }
+
+        // Save data to localStorage
+        function saveData() {
+            localStorage.setItem('familyMembers', JSON.stringify(familyMembers));
+            localStorage.setItem('transactions', JSON.stringify(transactions));
+        }
 
         function addMember() {
             const memberName = document.getElementById('newMemberInput').value.trim();
@@ -167,24 +219,18 @@
                 familyMembers.push(newMember);
                 updateMemberList();
                 document.getElementById('newMemberInput').value = '';
+                saveData();
+                updateReport();
             }
         }
 
         function updateMemberList() {
-            const memberSelect = document.getElementById('memberSelect');
             const memberList = document.getElementById('memberList');
+            const memberSelect = document.getElementById('memberSelect');
             
-            // Update select dropdown
-            memberSelect.innerHTML = '<option value="">Select a squad member | 팀원 선택</option>';
-            familyMembers.forEach(member => {
-                const option = document.createElement('option');
-                option.value = member.id;
-                option.textContent = member.name;
-                memberSelect.appendChild(option);
-            });
-
-            // Update member list
             memberList.innerHTML = '';
+            memberSelect.innerHTML = '<option value="">Select a squad member | 팀원 선택</option>';
+
             familyMembers.forEach(member => {
                 const div = document.createElement('div');
                 div.textContent = member.name;
@@ -193,6 +239,11 @@
                 deleteBtn.onclick = () => deleteMember(member.id);
                 div.appendChild(deleteBtn);
                 memberList.appendChild(div);
+
+                const option = document.createElement('option');
+                option.value = member.id;
+                option.textContent = member.name;
+                memberSelect.appendChild(option);
             });
         }
 
@@ -200,33 +251,20 @@
             familyMembers = familyMembers.filter(member => member.id !== memberId);
             transactions = transactions.filter(transaction => transaction.memberId !== memberId);
             updateMemberList();
-            if (selectedMember && selectedMember.id === memberId) {
-                selectedMember = null;
-                document.getElementById('memberSelect').value = '';
-            }
             updateTransactionTable();
             updateSummary();
-        }
-
-        function selectMember() {
-            const memberId = document.getElementById('memberSelect').value;
-            selectedMember = familyMembers.find(member => member.id === Number(memberId));
-            updateTransactionTable();
-            updateSummary();
+            updateReport();
+            saveData();
         }
 
         function addTransaction() {
-            if (!selectedMember) {
-                alert('Please select a squad member first. | 먼저 팀원을 선택해주세요.');
-                return;
-            }
-
+            const memberId = document.getElementById('memberSelect').value;
             const date = document.getElementById('transactionDate').value;
             const description = document.getElementById('transactionDescription').value;
             let amount = Number(document.getElementById('transactionAmount').value);
             const type = document.getElementById('transactionType').value;
 
-            if (!date || !description || !amount) {
+            if (!memberId || !date || !description || !amount) {
                 alert('Please fill all fields. | 모든 필드를 채워주세요.');
                 return;
             }
@@ -237,7 +275,7 @@
 
             const newTransaction = {
                 id: Date.now(),
-                memberId: selectedMember.id,
+                memberId: Number(memberId),
                 date,
                 description,
                 amount
@@ -246,38 +284,57 @@
             transactions.push(newTransaction);
             updateTransactionTable();
             updateSummary();
+            updateReport();
+            saveData();
 
             // Clear input fields
+            document.getElementById('memberSelect').value = '';
             document.getElementById('transactionDate').value = '';
             document.getElementById('transactionDescription').value = '';
             document.getElementById('transactionAmount').value = '';
+        }
+
+        function deleteTransaction(transactionId) {
+            transactions = transactions.filter(t => t.id !== transactionId);
+            updateTransactionTable();
+            updateSummary();
+            updateReport();
+            saveData();
         }
 
         function updateTransactionTable() {
             const tableBody = document.getElementById('transactionTable').getElementsByTagName('tbody')[0];
             tableBody.innerHTML = '';
 
-            if (selectedMember) {
-                const memberTransactions = transactions.filter(t => t.memberId === selectedMember.id);
-                memberTransactions.forEach(transaction => {
-                    const row = tableBody.insertRow();
-                    row.insertCell(0).textContent = transaction.date;
-                    row.insertCell(1).textContent = transaction.description;
-                    row.insertCell(2).textContent = '₹' + Math.abs(transaction.amount).toFixed(2);
-                    row.insertCell(3).textContent = transaction.amount >= 0 ? 'Income | 수입' : 'Expense | 지출';
-                });
-            }
+            transactions.forEach(transaction => {
+                const member = familyMembers.find(m => m.id === transaction.memberId);
+                const row = tableBody.insertRow();
+                row.insertCell(0).textContent = transaction.date;
+                row.insertCell(1).textContent = member ? member.name : 'Unknown';
+                row.insertCell(2).textContent = transaction.description;
+                row.insertCell(3).textContent = '₹' + Math.abs(transaction.amount).toFixed(2);
+                row.insertCell(4).textContent = transaction.amount >= 0 ? 'Income | 수입' : 'Expense | 지출';
+                
+                const deleteCell = row.insertCell(5);
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = 'Delete | 삭제';
+                deleteBtn.className = 'delete-btn';
+                deleteBtn.onclick = () => deleteTransaction(transaction.id);
+                deleteCell.appendChild(deleteBtn);
+            });
         }
 
         function updateSummary() {
             let totalIncome = 0;
             let totalExpenses = 0;
 
-            if (selectedMember) {
-                const memberTransactions = transactions.filter(t => t.memberId === selectedMember.id);
-                totalIncome = memberTransactions.reduce((sum, t) => t.amount > 0 ? sum + t.amount : sum, 0);
-                totalExpenses = Math.abs(memberTransactions.reduce((sum, t) => t.amount < 0 ? sum + t.amount : sum, 0));
-            }
+            transactions.forEach(t => {
+                if (t.amount > 0) {
+                    totalIncome += t.amount;
+                } else {
+                    totalExpenses += Math.abs(t.amount);
+                }
+            });
 
             const balance = totalIncome - totalExpenses;
 
@@ -286,10 +343,26 @@
             document.getElementById('balance').textContent = '₹' + balance.toFixed(2);
         }
 
+        function updateReport() {
+            const reportTableBody = document.getElementById('reportTable').getElementsByTagName('tbody')[0];
+            reportTableBody.innerHTML = '';
+
+            familyMembers.forEach(member => {
+                const memberTransactions = transactions.filter(t => t.memberId === member.id);
+                const totalSpending = memberTransactions.reduce((sum, t) => t.amount < 0 ? sum + Math.abs(t.amount) : sum, 0);
+
+                const row = reportTableBody.insertRow();
+                row.insertCell(0).textContent = member.name;
+                row.insertCell(1).textContent = '₹' + totalSpending.toFixed(2);
+            });
+        }
+
         // Initialize the application
+        loadData();
         updateMemberList();
         updateTransactionTable();
         updateSummary();
+        updateReport();
     </script>
 </body>
 </html>
